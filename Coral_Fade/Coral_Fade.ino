@@ -1,37 +1,61 @@
-const int delay_msec = 12;
-int ch1_pin =  12;
-int ch2_pin =  15;
-int ch3_pin =  14;
-#define CYCLE_LEN 360
-const int ch2_offset = CYCLE_LEN/3;
-const int ch3_offset = 2 * ch2_offset;
-int delay_ch2_msec = delay_msec*1.05;
-int delay_ch3_msec = delay_msec*0.95;
-unsigned char cycle_intensities[CYCLE_LEN];
+#define DELAY_MSEC      25
+#define CH1_PIN         12
+#define CH2_PIN         15
+#define CH3_PIN         14
+#define CYCLE_LEN       576
 
-void setup()   {
-  pinMode(ch1_pin, OUTPUT);
-  pinMode(ch2_pin, OUTPUT);
-  pinMode(ch3_pin, OUTPUT);
-  const int peak = (CYCLE_LEN / 2 - 1);
-  const int half_way = (CYCLE_LEN / 2);
-  for (int idx = 0; idx < CYCLE_LEN; idx++) {
-	/* 0,1,...,255,255-(256%256==0),255-(257%256==1),...0 */
-	/* Or, for humans:
-	   0,1,...,255,255,254,...,0 */
-    cycle_intensities[idx] = idx > peak ? peak - (idx % half_way) : idx;
-  }
+#define PEAK_INTENSITY  180
+#define CH1_CYCLE_LEN   96
+#define CH2_CYCLE_LEN   72
+#define CH3_CYCLE_LEN   64
+
+unsigned char ch1_intensities[CYCLE_LEN];
+unsigned char ch2_intensities[CYCLE_LEN];
+unsigned char ch3_intensities[CYCLE_LEN];
+
+void set_channel(unsigned char *channel_intensitites, size_t channel_cycle_len)
+{
+    const int peak  = (channel_cycle_len / 2) - 1;
+    Serial.println(channel_cycle_len);
+    for (size_t index = 0; index < CYCLE_LEN; index += channel_cycle_len) {
+        for (size_t ch_index = 0; ch_index < channel_cycle_len; ch_index++) {
+            int vector_index = index + ch_index;
+            int val;
+            if (ch_index > peak) {
+                val = peak - (ch_index % (channel_cycle_len/2));
+            } else {
+                val = ch_index;
+            }
+            val *= (float)PEAK_INTENSITY/(float)channel_cycle_len;
+            channel_intensitites[vector_index] = val;
+            Serial.print(vector_index);
+            Serial.print(" ");
+            Serial.print(val);
+            Serial.print("\n");
+        }
+    }
+    Serial.flush();
+}
+
+void setup()
+{
+    pinMode(CH1_PIN, OUTPUT);
+    pinMode(CH2_PIN, OUTPUT);
+    pinMode(CH3_PIN, OUTPUT);
+
+    Serial.begin(9600); // USB is always 12 Mbit/sec
+
+    set_channel(ch1_intensities, CH1_CYCLE_LEN);
+    set_channel(ch2_intensities, CH2_CYCLE_LEN);
+    set_channel(ch3_intensities, CH3_CYCLE_LEN);
 }
 
 void loop()
 {
-  for (int idx = 0; idx < CYCLE_LEN; idx++) {
-    /* ch1 is just idx */
-    unsigned ch2_idx = (idx + ch2_offset) % CYCLE_LEN;
-    unsigned ch3_idx = (idx + ch3_offset) % CYCLE_LEN;    
-    analogWrite(ch1_pin, cycle_intensities[idx]);
-    analogWrite(ch2_pin, cycle_intensities[ch2_idx]);
-    analogWrite(ch3_pin, cycle_intensities[ch3_idx]);
-    delay(delay_msec);
-  }
+    for (size_t index = 0; index < CYCLE_LEN; index++) {
+        analogWrite(CH1_PIN, ch1_intensities[index]);
+        analogWrite(CH2_PIN, ch2_intensities[index]);
+        analogWrite(CH3_PIN, ch3_intensities[index]);
+        delay(DELAY_MSEC);
+    }
 }
